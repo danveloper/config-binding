@@ -2,8 +2,7 @@ package config
 
 import spock.lang.Specification
 
-
-import static config.support.ConfigurationSpecSupport.get
+import static config.support.ConfigurationSpecSupport.*
 
 class BasicTypedBindingSpec extends Specification {
   void "should map to a bunch of different types"() {
@@ -19,7 +18,7 @@ class BasicTypedBindingSpec extends Specification {
       """.stripMargin()
 
     when:
-      def allTypesConfig = get(props).get(AllTypesConfig)
+      def allTypesConfig = config().add(propFile(props)).get(AllTypesConfig)
 
     then:
       allTypesConfig.stringType == stringType

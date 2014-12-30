@@ -3,7 +3,7 @@ package config
 import spock.lang.Specification
 
 
-import static config.support.ConfigurationSpecSupport.get
+import static config.support.ConfigurationSpecSupport.config
 
 class CustomTypeConverterSpec extends Specification {
   void "should be able to use a custom type converter"() {
@@ -14,7 +14,7 @@ class CustomTypeConverterSpec extends Specification {
       """.stripMargin()
 
     when:
-      def nestedConfig = get(props).converter(new DbConverter()).get(NestedConfig)
+      def nestedConfig = config(props).converter(new DbConverter()).get(NestedConfig)
 
     then:
       nestedConfig.db instanceof ManufactueredDb

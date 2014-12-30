@@ -3,7 +3,7 @@ package config
 import spock.lang.Specification
 
 
-import static config.support.ConfigurationSpecSupport.get
+import static config.support.ConfigurationSpecSupport.*
 
 class BasicConfigBindingSpec extends Specification {
   void "should bind base object from config source"() {
@@ -14,7 +14,7 @@ class BasicConfigBindingSpec extends Specification {
       """.stripMargin()
 
     when:
-      def myConfig = get(props).get(MyConfig)
+      def myConfig = config().add(propFile(props)).get(MyConfig)
 
     then:
       myConfig.appName == appName

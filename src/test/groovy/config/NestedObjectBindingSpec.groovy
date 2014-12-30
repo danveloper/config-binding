@@ -1,7 +1,7 @@
 package config
 
 import spock.lang.Specification
-import static config.support.ConfigurationSpecSupport.get
+import static config.support.ConfigurationSpecSupport.*
 
 class NestedObjectBindingSpec extends Specification {
   void "should map nested config object"() {
@@ -12,7 +12,7 @@ class NestedObjectBindingSpec extends Specification {
       """.stripMargin()
 
     when:
-      def nestedConfig = get(props).get(NestedConfig)
+      def nestedConfig = config().add(propFile(props)).get(NestedConfig)
 
     then:
       nestedConfig.db.url == dbUrl

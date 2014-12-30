@@ -3,7 +3,7 @@ package config
 import spock.lang.Specification
 
 
-import static config.support.ConfigurationSpecSupport.get
+import static config.support.ConfigurationSpecSupport.*
 
 class TypedMapBindingSpec extends Specification {
 
@@ -17,7 +17,7 @@ class TypedMapBindingSpec extends Specification {
       """.stripMargin()
 
     when:
-      def dbRegistryConfig = get(props).get(DbRegistry)
+      def dbRegistryConfig = config().add(propFile(props)).get(DbRegistry)
 
     then:
       2 == dbRegistryConfig.registry.size()

@@ -5,10 +5,11 @@ import config.DefaultConfiguration
 import config.PropertiesConfigurationSource
 
 class ConfigurationSpecSupport {
-  static ConfigurationSpec get(String props) {
-    def config = new DefaultConfiguration()
-    def propertiesConfigSource = PropertiesConfigurationSource.load(new ByteArrayInputStream(props.bytes))
-    config.add(propertiesConfigSource)
-    config
+  static ConfigurationSpec config() {
+    new DefaultConfiguration()
+  }
+
+  static PropertiesConfigurationSource propFile(String src) {
+    PropertiesConfigurationSource.load(new ByteArrayInputStream(src.bytes))
   }
 }
