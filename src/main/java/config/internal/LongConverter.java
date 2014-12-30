@@ -5,7 +5,7 @@ import config.TypeConverter;
 public class LongConverter implements TypeConverter<Long> {
     @Override
     public boolean handles(Class clazz) {
-        return Long.class.isAssignableFrom(clazz);
+        return clazz == long.class || Long.class.isAssignableFrom(clazz);
     }
 
     @Override

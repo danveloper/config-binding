@@ -13,30 +13,22 @@ public class PropertiesConfigurationSource implements ConfigurationSourceSpec {
 
     private final Map<String, Object> bindingMap = new LinkedHashMap<>();
 
-    public static PropertiesConfigurationSource load(File propertiesFile) throws BindingException {
-        try {
-            return load(new FileInputStream(propertiesFile));
-        } catch (FileNotFoundException e) {
-            throw new BindingException(e);
-        }
+    public static PropertiesConfigurationSource load(File propertiesFile) throws IOException {
+        return load(new FileInputStream(propertiesFile));
     }
 
-    public static PropertiesConfigurationSource load(String propertiesFile) throws BindingException {
+    public static PropertiesConfigurationSource load(String propertiesFile) throws IOException {
         return load(PropertiesConfigurationSource.class.getClassLoader(), propertiesFile);
     }
 
-    public static PropertiesConfigurationSource load(ClassLoader classLoader, String propertiesFile) throws BindingException {
+    public static PropertiesConfigurationSource load(ClassLoader classLoader, String propertiesFile) throws IOException {
         return load(classLoader.getResourceAsStream(propertiesFile));
     }
 
-    public static PropertiesConfigurationSource load(InputStream stream) throws BindingException {
+    public static PropertiesConfigurationSource load(InputStream stream) throws IOException {
         Properties properties = new Properties();
-        try {
-            properties.load(stream);
-            return load0(properties);
-        } catch (IOException e) {
-            throw new BindingException(e);
-        }
+        properties.load(stream);
+        return load0(properties);
     }
 
     private static PropertiesConfigurationSource load0(Properties properties) {

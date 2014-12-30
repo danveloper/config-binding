@@ -13,6 +13,8 @@ public class MapConverter implements TypeConverter<Map> {
 
     @Override
     public Map convert(Object value) {
-        return new LinkedHashMap<>();
+        Map result = new LinkedHashMap<>();
+        result.putAll((Map)value);
+        return result;
     }
 }

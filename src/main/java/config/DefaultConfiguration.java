@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@SuppressWarnings("unchecked")
 public class DefaultConfiguration implements ConfigurationSpec {
     private final List<TypeConverter> converters = new ArrayList<TypeConverter>()  {{
         add(new StringConverter());
@@ -56,7 +57,6 @@ public class DefaultConfiguration implements ConfigurationSpec {
         return bindingMap;
     }
 
-    @SuppressWarnings("unchecked")
     private static void mergeMaps(Map<String, Object> source, Map<String, Object> target) {
         for (String key : source.keySet()) {
             Object val = source.get(key);
@@ -74,12 +74,19 @@ public class DefaultConfiguration implements ConfigurationSpec {
         }
     }
 
-    @SuppressWarnings("unchecked")
+    private <T> TypeConverter<T> getConverter(Class<T> type) {
+        TypeConverter<T> handler = null;
+        for (TypeConverter converter : converters) {
+            if (converter.handles(type)) {
+                handler = converter;
+                break;
+            }
+        }
+        return handler;
+    }
+
     private void bind(Map<String, Object> bindingMap, Object bindingObject) throws BindingException {
         try {
-            if (bindingObject instanceof Map) {
-
-            }
             for (Field field : bindingObject.getClass().getDeclaredFields()) {
                 String name = field.getName();
                 if (!bindingMap.containsKey(name)) {
@@ -88,39 +95,62 @@ public class DefaultConfiguration implements ConfigurationSpec {
                 field.setAccessible(true);
                 Class fieldType = field.getType();
 
-                TypeConverter handler = null;
-                for (TypeConverter converter : converters) {
-                    if (converter.handles(fieldType)) {
-                        handler = converter;
-                        break;
-                    }
-                }
-
                 Object value = bindingMap.get(name);
-                if ((value instanceof Map) && !Map.class.isAssignableFrom(fieldType)) {
+                if ((value instanceof Map) && Map.class.isAssignableFrom(fieldType)) {
+                    ParameterizedType pt = (ParameterizedType)field.getGenericType();
+                    Type[] parameterizedTypes = pt.getActualTypeArguments();
+                    Type mapValType = parameterizedTypes[1];
+                    value = bindMap((Map) value, (Class) mapValType);
+                } else if ((value instanceof Map) && !Map.class.isAssignableFrom(fieldType)) {
                     Object nextBindingObject = field.get(bindingObject);
 
-                    if (handler != null && nextBindingObject == null) {
-                        nextBindingObject = handler.convert(value);
-                    } else if (handler == null && nextBindingObject == null) {
-                        Constructor constructor = fieldType.getDeclaredConstructor();
-                        constructor.setAccessible(true);
-                        nextBindingObject = constructor.newInstance();
+                    if (nextBindingObject == null) {
+                        nextBindingObject = bindObject((Map)value, fieldType);
+                    } else {
+                        bind((Map<String, Object>) value, nextBindingObject);
                     }
-
-                    bind((Map<String, Object>) value, nextBindingObject);
                     value = nextBindingObject;
-                } else if ((value instanceof Map) && Map.class.isAssignableFrom(fieldType)) {
-                    
-                } else {
-                    if (handler != null) {
-                        value = handler.convert(value);
-                    }
                 }
+
+                TypeConverter handler = getConverter(fieldType);
+                if (handler != null) {
+                    value = handler.convert(value);
+                }
+
                 field.set(bindingObject, value);
             }
+        } catch (IllegalAccessException e) {
+            throw new BindingException(e);
+        }
+    }
+
+    private <T> T bindObject(Map<String, Object> bindingMap, Class<T> objectClass) throws BindingException {
+        try {
+            Constructor<T> constructor = objectClass.getDeclaredConstructor();
+            constructor.setAccessible(true);
+            T obj = constructor.newInstance();
+            bind(bindingMap, obj);
+            return obj;
         } catch (NoSuchMethodException|InstantiationException|IllegalAccessException|InvocationTargetException e) {
             throw new BindingException(e);
         }
+    }
+
+    private <T> Map<String, T> bindMap(Map<String, Object> bindingMap, Class<T> valClass) throws BindingException {
+        LinkedHashMap<String, T> result = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : bindingMap.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+
+            TypeConverter handler = getConverter(valClass);
+
+            if (handler != null) {
+                value = handler.convert(value);
+            } else if (value instanceof Map) {
+                value = bindObject((Map)value, valClass);
+            }
+            result.put(key, (T) value);
+        }
+        return result;
     }
 }
