@@ -2,20 +2,18 @@ package config;
 
 import config.internal.*;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public class DefaultConfiguration implements ConfigurationSpec {
-    private final List<TypeBinder> binders = new ArrayList<TypeBinder>()  {{
-        add(new StringBinder());
-        add(new IntegerBinder());
-        add(new LongBinder());
-        add(new MapBinder());
+    private final List<TypeConverter> converters = new ArrayList<TypeConverter>()  {{
+        add(new StringConverter());
+        add(new IntegerConverter());
+        add(new LongConverter());
+        add(new MapConverter());
     }};
     private final List<ConfigurationSourceSpec> configSources = new ArrayList<>();
 
@@ -26,8 +24,8 @@ public class DefaultConfiguration implements ConfigurationSpec {
     }
 
     @Override
-    public ConfigurationSpec binder(TypeBinder binder) {
-        this.binders.add(binder);
+    public ConfigurationSpec converter(TypeConverter binder) {
+        this.converters.add(binder);
         return this;
     }
 
@@ -58,11 +56,17 @@ public class DefaultConfiguration implements ConfigurationSpec {
         return bindingMap;
     }
 
+    @SuppressWarnings("unchecked")
     private static void mergeMaps(Map<String, Object> source, Map<String, Object> target) {
         for (String key : source.keySet()) {
             Object val = source.get(key);
-            if ((!target.containsKey(key)) && val instanceof Map) {
-                Map<String, Object> targetNestedMap = (Map<String, Object>)target.get(key);
+            if (val instanceof Map) {
+                Map<String, Object> targetNestedMap = new LinkedHashMap<>();
+                if (target.containsKey(key)) {
+                    targetNestedMap = (Map<String, Object>) target.get(key);
+                } else {
+                    target.put(key, targetNestedMap);
+                }
                 mergeMaps((Map<String, Object>)val, targetNestedMap);
             } else {
                 target.put(key, val);
@@ -73,35 +77,47 @@ public class DefaultConfiguration implements ConfigurationSpec {
     @SuppressWarnings("unchecked")
     private void bind(Map<String, Object> bindingMap, Object bindingObject) throws BindingException {
         try {
+            if (bindingObject instanceof Map) {
+
+            }
             for (Field field : bindingObject.getClass().getDeclaredFields()) {
                 String name = field.getName();
                 if (!bindingMap.containsKey(name)) {
                     continue;
                 }
-                Object value = bindingMap.get(name);
+                field.setAccessible(true);
                 Class fieldType = field.getType();
-                TypeBinder handler = null;
-                for (TypeBinder binder : binders) {
-                    if (binder.getType().isAssignableFrom(fieldType)) {
-                        handler = binder;
+
+                TypeConverter handler = null;
+                for (TypeConverter converter : converters) {
+                    if (converter.handles(fieldType)) {
+                        handler = converter;
                         break;
                     }
                 }
-                if (handler != null) {
-                    handler.bind(bindingObject, field, fieldType.cast(value));
-                } else if (value instanceof Map) {
+
+                Object value = bindingMap.get(name);
+                if ((value instanceof Map) && !Map.class.isAssignableFrom(fieldType)) {
                     Object nextBindingObject = field.get(bindingObject);
 
-                    if (nextBindingObject == null) {
+                    if (handler != null && nextBindingObject == null) {
+                        nextBindingObject = handler.convert(value);
+                    } else if (handler == null && nextBindingObject == null) {
                         Constructor constructor = fieldType.getDeclaredConstructor();
                         constructor.setAccessible(true);
                         nextBindingObject = constructor.newInstance();
                     }
 
                     bind((Map<String, Object>) value, nextBindingObject);
-                    field.setAccessible(true);
-                    field.set(bindingObject, nextBindingObject);
+                    value = nextBindingObject;
+                } else if ((value instanceof Map) && Map.class.isAssignableFrom(fieldType)) {
+                    
+                } else {
+                    if (handler != null) {
+                        value = handler.convert(value);
+                    }
                 }
+                field.set(bindingObject, value);
             }
         } catch (NoSuchMethodException|InstantiationException|IllegalAccessException|InvocationTargetException e) {
             throw new BindingException(e);

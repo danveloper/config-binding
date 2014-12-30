@@ -1,0 +1,15 @@
+package config.internal;
+
+import config.TypeConverter;
+
+public class LongConverter implements TypeConverter<Long> {
+    @Override
+    public boolean handles(Class clazz) {
+        return Long.class.isAssignableFrom(clazz);
+    }
+
+    @Override
+    public Long convert(Object value) {
+        return Long.valueOf(value.toString());
+    }
+}

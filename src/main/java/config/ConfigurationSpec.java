@@ -6,7 +6,7 @@ public interface ConfigurationSpec {
 
     ConfigurationSpec add(ConfigurationSourceSpec configSource);
 
-    ConfigurationSpec binder(TypeBinder binder);
+    ConfigurationSpec converter(TypeConverter binder);
 
     <T> T get(Class<T> configClass) throws BindingException;
 
