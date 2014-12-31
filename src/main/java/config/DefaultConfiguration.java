@@ -3,10 +3,7 @@ package config;
 import config.internal.*;
 
 import java.lang.reflect.*;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings("unchecked")
 public class DefaultConfiguration implements ConfigurationSpec {
@@ -97,10 +94,7 @@ public class DefaultConfiguration implements ConfigurationSpec {
 
                 Object value = bindingMap.get(name);
                 if ((value instanceof Map) && Map.class.isAssignableFrom(fieldType)) {
-                    ParameterizedType pt = (ParameterizedType)field.getGenericType();
-                    Type[] parameterizedTypes = pt.getActualTypeArguments();
-                    Type mapValType = parameterizedTypes[1];
-                    value = bindMap((Map) value, (Class) mapValType);
+                    value = bindMap((Map) value, getParameterType(field, 1));
                 } else if ((value instanceof Map) && !Map.class.isAssignableFrom(fieldType)) {
                     Object nextBindingObject = field.get(bindingObject);
 
@@ -110,6 +104,8 @@ public class DefaultConfiguration implements ConfigurationSpec {
                         bind((Map<String, Object>) value, nextBindingObject);
                     }
                     value = nextBindingObject;
+                } else if ((value instanceof Collection) && Collection.class.isAssignableFrom(fieldType)) {
+                    value = bindList((List) value, fieldType, getParameterType(field, 0));
                 }
 
                 TypeConverter handler = getConverter(fieldType);
@@ -122,6 +118,13 @@ public class DefaultConfiguration implements ConfigurationSpec {
         } catch (IllegalAccessException e) {
             throw new BindingException(e);
         }
+    }
+
+    private static <T> Class<T> getParameterType(Field field, int idx) {
+        ParameterizedType pt = (ParameterizedType)field.getGenericType();
+        Type[] parameterizedTypes = pt.getActualTypeArguments();
+        Type mapValType = parameterizedTypes[idx];
+        return (Class<T>)mapValType;
     }
 
     private <T> T bindObject(Map<String, Object> bindingMap, Class<T> objectClass) throws BindingException {
@@ -137,19 +140,41 @@ public class DefaultConfiguration implements ConfigurationSpec {
     }
 
     private <T> Map<String, T> bindMap(Map<String, Object> bindingMap, Class<T> valClass) throws BindingException {
+        TypeConverter handler = getConverter(valClass);
+
         LinkedHashMap<String, T> result = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : bindingMap.entrySet()) {
             String key = entry.getKey();
             Object value = entry.getValue();
 
-            TypeConverter handler = getConverter(valClass);
-
             if (handler != null) {
                 value = handler.convert(value);
-            } else if (value instanceof Map) {
-                value = bindObject((Map)value, valClass);
+            }
+
+            if (value instanceof Map) {
+                value = bindObject((Map) value, valClass);
             }
             result.put(key, (T) value);
+        }
+        return result;
+    }
+
+    private <T> Collection<T> bindList(List bindingList, Class fieldType, Class<T> valClass) throws BindingException {
+        TypeConverter handler = getConverter(valClass);
+
+        Collection<T> result = new ArrayList<>();
+        if (Set.class.isAssignableFrom(fieldType)) {
+            result = new LinkedHashSet<>();
+        }
+        for (Object obj : bindingList) {
+            if (handler != null) {
+                obj = handler.convert(obj);
+            }
+            if (valClass.isAssignableFrom(obj.getClass())) {
+                result.add((T)obj);
+            } else if (obj instanceof Map) {
+                result.add((T)bindObject((Map)obj, valClass));
+            }
         }
         return result;
     }
